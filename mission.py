@@ -2,7 +2,8 @@
 
 Une mission = un client + une liste d'actifs. Pour chaque actif on déroule
 la chaîne (produit -> CVE récentes -> métriques -> risque), puis on produit
-une liste de findings priorisée TOUS actifs confondus.
+une liste de findings priorisée TOUS actifs confondus : le "quoi corriger
+d'abord" que le consultant attend.
 """
 
 from dataclasses import dataclass, field
@@ -18,6 +19,7 @@ class Asset:
     exposure: str = "MEDIUM"   # LOW / MEDIUM / HIGH (humain)
     criticality: str = "MEDIUM"
     context: str = ""          # note métier (humain)
+    version: str = ""          # version exacte (ex. "2.4.52"), venue d'un scan
 
 
 @dataclass
@@ -28,6 +30,10 @@ class Finding:
     cvss_score: float
     epss: float
     in_kev: bool
+    description: str = ""
+    cvss_severity: str = ""
+    product: str = ""
+    version: str = ""
 
 
 @dataclass
@@ -40,7 +46,8 @@ class MissionResult:
 def run_mission(client, assets, nvd, epss, kev, max_recent=15):
     asset_risks, findings = [], []
     for a in assets:
-        rows = assess_asset(a.product, nvd, epss, kev, max_recent=max_recent)
+        rows = assess_asset(a.product, nvd, epss, kev, max_recent=max_recent,
+                            version=(a.version or None))
         ar = asset_risk(a.name, rows, exposure=a.exposure, criticality=a.criticality)
         asset_risks.append((a, ar))
         by_id = {e.cve_id: e for e in rows}
@@ -48,6 +55,9 @@ def run_mission(client, assets, nvd, epss, kev, max_recent=15):
             if r.determined:
                 e = by_id[r.cve_id]
                 findings.append(Finding(a.name, r.cve_id, r.risk,
-                                        e.cvss_score, e.epss, e.in_kev))
+                                        e.cvss_score, e.epss, e.in_kev,
+                                        description=e.description or "",
+                                        cvss_severity=e.cvss_severity or "",
+                                        product=a.product, version=(a.version or "")))
     findings.sort(key=lambda f: f.risk, reverse=True)
     return MissionResult(client, asset_risks, findings)

@@ -3,215 +3,830 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CySyMo — Analyse de risque</title>
+<title>CySyMo — Analyse de risque cyber</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#13202B; --muted:#647082; --faint:#909AA8;
-    --line:#E1E6EC; --line-soft:#EDF0F4; --bg:#E9EDF1; --paper:#FFFFFF;
-    --teal:#0F7B68; --teal-soft:#E4F1ED; --teal-ink:#0A5648;
-    --red:#D14233; --red-soft:#FBE9E6; --amber:#B9740F; --amber-soft:#F8EDDB;
-    --radius:10px; --shadow:0 1px 2px rgba(19,32,43,.04), 0 6px 20px rgba(19,32,43,.06);
+    /* Épuré high-tech — graphite froid, lignes fines, signal parcimonieux */
+    --ink:#F2F5F8; --muted:#7C8B99; --faint:#4A5765;
+    --line:#1C242D; --line-soft:#151B22; --bg:#08090B; --paper:#0C0F13;
+    --topbar:#0A0C0F; --input-bg:#0E1216;
+    --teal:#2FD9BE; --teal-soft:#0E2621; --teal-ink:#7DEAD6;
+    --red:#FF6155; --red-soft:#221210; --amber:#F5B44C; --amber-soft:#221C10;
+    --radius:12px; --shadow:none;
   }
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;}
-  .mono{font-family:'IBM Plex Mono',monospace;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;letter-spacing:-.003em;}
+  body::before{content:'';position:fixed;inset:0 0 auto 0;height:320px;pointer-events:none;z-index:0;background:radial-gradient(700px 220px at 26% -80px, rgba(47,217,190,.028), transparent 72%);}
   h1,h2,h3{font-family:'Space Grotesk',sans-serif;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
 
-  .topbar{display:flex;align-items:center;gap:18px;padding:14px 24px;background:var(--ink);color:#fff;}
+  .topbar{display:flex;align-items:center;gap:18px;padding:13px 30px;background:linear-gradient(180deg,#0C1219,#0A0E13);color:#fff;border-bottom:1px solid var(--line-soft);position:relative;z-index:1;}
   .logo{font-family:'Space Grotesk';font-weight:700;font-size:19px;letter-spacing:-.02em;}
-  .logo b{color:#5FD3BD;}
+  .logo b{color:var(--teal);}
   .principle{font-size:12px;color:#A7B6C1;}
   .principle b{color:#fff;font-weight:500;}
   .principle .sep{color:#46586a;}
   .kev-state{margin-left:auto;font-family:'IBM Plex Mono';font-size:11px;color:#9FB0BC;}
 
-  .wrap{max-width:1000px;margin:0 auto;padding:24px 20px 60px;}
-  .eyebrow{font-family:'IBM Plex Mono';font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin:0 0 12px;}
-
-  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 20px;margin-bottom:18px;}
+  /* --- layout : rail à icônes + zone principale (design maquette) --- */
+  .shell{display:grid;grid-template-columns:74px 1fr;min-height:100vh;}
+  .rail{border-right:1px solid var(--line-soft);background:linear-gradient(180deg,#0C1219,#0A0E13);
+    display:flex;flex-direction:column;align-items:center;padding:18px 0;gap:6px;position:sticky;top:0;height:100vh;z-index:2;}
+  .rail .mark{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;margin-bottom:20px;
+    background:linear-gradient(135deg,#123,#0d1a1f);border:1px solid var(--line);
+    font-family:'Space Grotesk';font-weight:700;font-size:15px;color:var(--teal);}
+  .rail .nav{list-style:none;display:flex;flex-direction:column;gap:3px;width:100%;align-items:center;padding:0;margin:0;}
+  .rail .nav li{width:46px;height:46px;border-radius:11px;display:grid;place-items:center;cursor:pointer;
+    color:var(--faint);position:relative;transition:color .18s,background .18s;}
+  .rail .nav li svg{width:19px;height:19px;}
+  .rail .nav li:hover{color:var(--muted);background:var(--paper);}
+  .rail .nav li.on{color:var(--teal);background:var(--paper);}
+  .rail .nav li.on::before{content:'';position:absolute;left:-1px;top:12px;bottom:12px;width:2px;border-radius:2px;background:var(--teal);box-shadow:0 0 10px var(--teal);}
+  .rail .nav li.locked{color:#2c3945;cursor:not-allowed;}
+  .rail .nav li.locked:hover{background:transparent;color:#2c3945;}
+  .rail .nav .tip{position:absolute;left:56px;white-space:nowrap;background:var(--paper);border:1px solid var(--line);
+    padding:5px 10px;border-radius:7px;font-size:12px;color:var(--ink);opacity:0;pointer-events:none;transform:translateX(-4px);transition:.16s;z-index:5;}
+  .rail .nav li:hover .tip{opacity:1;transform:translateX(0);}
+  .main{padding:48px 64px 80px;max-width:1060px;position:relative;z-index:1;}
+  #view{max-width:none;margin:0;padding:0;}
+  @media(max-width:920px){.main{padding:32px 24px 60px;}}
+  @media(max-width:640px){.shell{grid-template-columns:60px 1fr;}}
+  .card{background:transparent;border:none;border-radius:0;padding:0;margin-bottom:34px;position:relative;z-index:1;}
+  h2.sec{font-family:'Space Grotesk';font-weight:600;font-size:20px;letter-spacing:-.015em;margin:0 0 6px;}
+  .sub{color:var(--muted);font-size:13.5px;margin:0 0 26px;max-width:680px;line-height:1.6;}
 
   label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:500;}
-  input,select{font-family:'Inter';font-size:13.5px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);width:100%;}
-  input:focus,select:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal);}
+  input,select,textarea{font-family:'Inter';font-size:14px;padding:11px 13px;border:1px solid var(--line);border-radius:9px;background:var(--input-bg);color:var(--ink);width:100%;transition:border-color .15s;}
+  input::placeholder,textarea::placeholder{color:var(--faint);}
+  textarea{resize:vertical;min-height:120px;line-height:1.6;}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal);}
 
-  .row{display:grid;grid-template-columns:1.3fr 1.6fr 1fr 1fr auto;gap:10px;align-items:end;}
-  @media(max-width:760px){.row{grid-template-columns:1fr 1fr;}}
-  .btn{font-family:'Inter';font-size:13px;font-weight:500;padding:9px 16px;border-radius:8px;border:1px solid var(--teal);background:var(--teal);color:#fff;cursor:pointer;white-space:nowrap;}
-  .btn:hover{background:var(--teal-ink);}
-  .btn.sec{background:#fff;color:var(--ink);border-color:var(--line);}
-  .btn.sec:hover{border-color:#C7D0DA;}
+  .btn{font-family:'Inter';font-size:13.5px;font-weight:600;padding:10px 20px;border-radius:10px;border:1px solid var(--teal);background:var(--teal);color:#04211C;cursor:pointer;white-space:nowrap;transition:filter .15s,transform .12s,box-shadow .15s;}
+  .btn:hover{filter:brightness(1.08);box-shadow:0 4px 16px rgba(47,217,190,.22);transform:translateY(-1px);}
+  .btn.sec{background:transparent;color:var(--muted);border-color:var(--line);font-weight:500;}
+  .btn.sec:hover{border-color:var(--muted);color:var(--ink);box-shadow:none;transform:none;}
   .btn:disabled{opacity:.5;cursor:default;}
+  .actions-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px;}
 
-  .assets-list{margin-top:14px;}
-  .asset-chip{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:#FAFBFC;}
-  .asset-chip .nm{font-weight:600;font-size:13px;}
-  .asset-chip .pr{font-family:'IBM Plex Mono';font-size:11.5px;color:var(--teal-ink);}
-  .asset-chip .lv{font-family:'IBM Plex Mono';font-size:10.5px;color:var(--muted);}
-  .asset-chip .x{margin-left:auto;border:none;background:none;color:var(--faint);cursor:pointer;font-size:16px;line-height:1;}
-  .asset-chip .x:hover{color:var(--red);}
-  .empty{color:var(--faint);font-size:12.5px;text-align:center;padding:14px;}
+  .arow{display:grid;grid-template-columns:1.2fr 1.4fr 0.9fr 0.9fr 0.9fr auto;gap:10px;align-items:end;margin-bottom:10px;}
+  @media(max-width:780px){.arow{grid-template-columns:1fr 1fr;}}
+  .arow .x{border:1px solid var(--line);background:var(--paper);border-radius:8px;color:var(--faint);cursor:pointer;height:38px;width:38px;font-size:15px;}
+  .arow .x:hover{border-color:var(--red);color:var(--red);}
 
-  .analyze-bar{display:flex;align-items:center;gap:14px;margin-top:6px;}
-  .analyze-bar input{max-width:280px;}
-
-  /* résultats */
-  #results{margin-top:8px;}
-  .asset-result{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;background:#fff;box-shadow:var(--shadow);}
-  .asset-result .info .nm{font-family:'Space Grotesk';font-weight:600;font-size:15px;}
-  .asset-result .info .meta{font-size:11.5px;color:var(--muted);font-family:'IBM Plex Mono';margin-top:2px;}
+  .asset-result{display:flex;align-items:center;gap:14px;padding:18px 4px;border:none;border-bottom:1px solid var(--line-soft);border-radius:0;margin-bottom:0;background:none;}
+  .asset-result .nm{font-family:'Space Grotesk';font-weight:600;font-size:15px;}
+  .asset-result .meta{font-size:11px;color:var(--muted);font-family:'IBM Plex Mono';margin-top:2px;}
+  .asset-result .bar{height:6px;border-radius:6px;background:var(--line-soft);overflow:hidden;margin-top:8px;width:170px;}
+  .asset-result .bar .fill{height:100%;border-radius:6px;transition:width .4s, background .4s;}
   .asset-result .score{margin-left:auto;text-align:right;}
-  .asset-result .score .n{font-family:'Space Grotesk';font-weight:700;font-size:26px;line-height:1;}
-  .asset-result .score .lab{font-size:10px;font-family:'IBM Plex Mono';color:var(--faint);text-transform:uppercase;letter-spacing:.1em;}
-  .bar{height:6px;border-radius:6px;background:var(--line-soft);overflow:hidden;margin-top:8px;width:160px;}
-  .bar .fill{height:100%;border-radius:6px;}
+  .asset-result .score .n{font-family:'Space Grotesk';font-weight:700;font-size:24px;line-height:1;}
+  .asset-result .score .lab{font-size:9.5px;font-family:'IBM Plex Mono';color:var(--faint);text-transform:uppercase;letter-spacing:.1em;}
 
-  table{width:100%;border-collapse:collapse;margin-top:6px;}
-  th{text-align:left;font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:8px 10px;border-bottom:1px solid var(--line);}
-  td{padding:9px 10px;border-bottom:1px solid var(--line-soft);font-size:13px;}
-  td.cve{font-family:'IBM Plex Mono';font-size:12.5px;}
+  table{width:100%;border-collapse:collapse;}
+  th{text-align:left;font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);padding:12px 8px;border-bottom:1px solid var(--line);font-weight:400;}
+  td{padding:14px 8px;border-bottom:1px solid var(--line-soft);font-size:13px;vertical-align:middle;}
+  td.cve{font-family:'IBM Plex Mono';font-size:12px;}
   td.num{font-family:'IBM Plex Mono';text-align:right;}
-  .pill{font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:20px;}
+  tr.validated{background:var(--teal-soft);}
+  tr.dismissed{opacity:.4;}
+  .pill{font-family:'IBM Plex Mono';font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:20px;white-space:nowrap;}
   .pill.kev{background:var(--red-soft);color:var(--red);}
   .pill.no{color:var(--faint);}
   .riskcell{font-family:'IBM Plex Mono';font-weight:600;text-align:right;}
+  .mini{font-family:'Inter';font-size:11px;padding:4px 9px;border-radius:6px;border:1px solid var(--line);background:var(--paper);cursor:pointer;color:var(--ink);}
+  .mini.ok{border-color:var(--teal);color:var(--teal-ink);}
+  .mini.ok:hover{background:var(--teal);color:#fff;}
+  .mini.no:hover{border-color:var(--red);color:var(--red);}
+  .mini.undo{color:var(--muted);}
+
+  .scenario{border:1px solid var(--line);border-left:3px solid var(--teal);border-radius:10px;padding:16px 18px;margin-bottom:12px;background:var(--paper);}
+  .scenario h3{margin:0 0 10px;font-size:14px;}
+  .schain{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:10px;}
+  .schain .node{background:var(--input-bg);border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-size:12px;}
+  .schain .node.flag{border-color:var(--red);background:var(--red-soft);color:var(--red);}
+  .schain .node .c{font-family:'IBM Plex Mono';font-size:10.5px;color:var(--teal-ink);display:block;}
+  .schain .node.flag .c{color:var(--red);}
+  .schain .node.pivot .c{color:var(--faint);}
+  .schain .arr{color:var(--faint);font-family:'IBM Plex Mono';}
+  .scenario .why{font-size:12px;color:var(--muted);border-top:1px solid var(--line-soft);padding-top:9px;}
+  .warn{background:var(--amber-soft);border:1px solid var(--amber);border-radius:8px;padding:11px 13px;font-size:12.5px;color:var(--amber);margin-bottom:12px;}
+
+  .report{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:28px 32px;line-height:1.65;}
+  .report h2{font-size:18px;margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line-soft);}
+  .report h3{font-size:14px;margin:16px 0 6px;}
+  .report p{margin:8px 0;font-size:13.5px;}
+  .report li{font-size:13.5px;margin:3px 0;}
+  .report strong{color:var(--ink);}
 
   .loading{text-align:center;color:var(--muted);padding:30px;font-size:13.5px;}
   .spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-3px;margin-right:8px;}
   @keyframes spin{to{transform:rotate(360deg);}}
-  .err{background:var(--red-soft);color:var(--red);border:1px solid #F0C7C0;border-radius:8px;padding:12px 14px;font-size:13px;}
-  .foot{font-size:11px;color:var(--faint);margin-top:8px;}
+  .err{background:var(--red-soft);color:var(--red);border:1px solid #F0C7C0;border-radius:8px;padding:12px 14px;font-size:13px;margin-top:10px;}
+
+  /* --- Mouvement discret : apparition, survols, jauges --- */
+  @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes fillbar{from{width:0;}}
+  /* la carte de chaque etape apparait en douceur */
+  .card{animation:rise .38s cubic-bezier(.22,.61,.36,1) both;}
+  /* leger decalage quand plusieurs cartes se suivent */
+  .card:nth-child(2){animation-delay:.05s;}
+  .card:nth-child(3){animation-delay:.10s;}
+  .scenario,.asset-result,.arow{animation:rise .34s cubic-bezier(.22,.61,.36,1) both;}
+  /* boutons : elevation au survol */
+  .btn{transition:transform .12s ease, box-shadow .12s ease, background .15s ease, filter .15s ease;}
+  .btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(15,123,104,.22);filter:brightness(1.04);}
+  .btn:active{transform:translateY(0);box-shadow:none;}
+  .btn.sec:hover{box-shadow:0 4px 12px rgba(19,32,43,.10);}
+  /* cartes de risque : ombre qui se leve au survol */
+  .asset-result{transition:box-shadow .18s ease, transform .18s ease;}
+  .asset-result:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(19,32,43,.09);}
+  /* jauge de risque : se remplit en s'affichant (attire l'oeil sur le danger) */
+  .asset-result .bar .fill{animation:fillbar .55s cubic-bezier(.22,.61,.36,1) both;}
+  /* lignes de tableau : survol */
+  tbody tr{transition:background .12s ease;}
+  tbody tr:hover{background:var(--teal-soft);}
+  /* etape active du parcours : transition douce */
+  .step{transition:background .2s ease, border-color .2s ease, color .2s ease, transform .15s ease;}
+  .step.clickable:hover{transform:translateY(-1px);}
+  /* respect de la preference systeme : pas d'animation si l'utilisateur la refuse */
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.001ms !important;animation-delay:0 !important;transition-duration:.001ms !important;}
+  }
+  @keyframes up{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+  .card{animation:up .46s cubic-bezier(.2,.7,.3,1) both;}
+  @media (prefers-reduced-motion: reduce){*{animation:none !important;}}
+
+  /* ===== Écran Analyse — style maquette high-tech ===== */
+  .an-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;gap:20px;}
+  .an-head .eyebrow{font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);}
+  .an-head .mn{font-family:'Space Grotesk';font-weight:600;font-size:22px;letter-spacing:-.01em;margin-top:6px;}
+  .an-head .cl{color:var(--muted);font-size:13px;margin-top:2px;}
+  .an-head .stamp{text-align:right;font-family:'IBM Plex Mono';font-size:11px;color:var(--faint);line-height:1.7;white-space:nowrap;}
+  .an-head .stamp b{color:var(--muted);font-weight:500;}
+
+  .meridian{margin:8px 0 48px;}
+  .meridian .cap{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px;}
+  .meridian .cap .lvl{font-family:'Space Grotesk';font-weight:700;font-size:52px;letter-spacing:-.03em;line-height:1;}
+  .meridian .cap .lvl small{font-size:13px;color:var(--faint);font-weight:400;margin-left:12px;letter-spacing:.02em;text-transform:uppercase;font-family:'IBM Plex Mono';}
+  .meridian .cap .tag{font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;padding:5px 11px;border-radius:20px;}
+  .meridian .track{height:38px;} .meridian .track svg{width:100%;height:100%;overflow:visible;display:block;}
+
+  .synth{border:none;border-radius:0;padding:0 0 0 22px;margin-bottom:40px;position:relative;background:none;}
+  .synth::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:2px;border-radius:2px;
+    background:linear-gradient(180deg,var(--teal),transparent);}
+  .synth .lab{font-family:'IBM Plex Mono';font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:11px;display:flex;align-items:center;gap:8px;}
+  .synth .lab .dot{width:6px;height:6px;border-radius:50%;background:var(--teal);box-shadow:0 0 8px var(--teal);}
+  .synth p{font-size:18px;line-height:1.7;color:#D6DEE6;letter-spacing:-.01em;margin:0;font-weight:400;}
+
+  .reads{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-bottom:44px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+  .read{border:none;border-radius:0;padding:22px 26px 22px 0;background:none;position:relative;}
+  .read .k{font-family:'IBM Plex Mono';font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);}
+  .read .v{font-family:'Space Grotesk';font-weight:700;font-size:34px;margin-top:12px;letter-spacing:-.025em;}
+  .read .s{font-size:12px;color:var(--muted);margin-top:5px;}
+  .read:not(:first-child){padding-left:26px;border-left:1px solid var(--line);}
+
+  .evsec{display:flex;align-items:baseline;justify-content:space-between;margin:0 0 14px;}
+  .evsec h2{font-family:'Space Grotesk';font-weight:600;font-size:16px;letter-spacing:-.01em;margin:0;}
+  .evsec .note{font-family:'IBM Plex Mono';font-size:11px;color:var(--faint);}
+  .evsec .note b{color:var(--teal);font-weight:500;}
 </style>
 </head>
 <body>
 
-<div class="topbar">
-  <span class="logo">Cy<b>Sy</b>Mo</span>
-  <span class="principle"><b>L'IA propose</b><span class="sep"> → </span><b>L'humain valide</b><span class="sep"> → </span><b>Le moteur calcule</b></span>
-  <span class="kev-state" id="kevState">—</span>
+<div class="shell">
+  <nav class="rail" id="rail"></nav>
+  <main class="main"><div id="view"></div></main>
 </div>
-
-<div class="wrap">
-
-  <div class="card">
-    <p class="eyebrow">Périmètre de la mission</p>
-    <div class="row">
-      <div><label>Nom de l'actif</label><input id="aName" placeholder="Passerelle VPN"></div>
-      <div><label>Produit (logiciel)</label><input id="aProduct" placeholder="Fortinet FortiOS"></div>
-      <div><label>Exposition</label>
-        <select id="aExposure"><option>HIGH</option><option selected>MEDIUM</option><option>LOW</option></select></div>
-      <div><label>Criticité métier</label>
-        <select id="aCriticality"><option>HIGH</option><option selected>MEDIUM</option><option>LOW</option></select></div>
-      <div><button class="btn" onclick="addAsset()">Ajouter</button></div>
-    </div>
-    <div class="assets-list" id="assetsList"><div class="empty">Aucun actif. Ajoute-en au moins un.</div></div>
-  </div>
-
-  <div class="card">
-    <div class="analyze-bar">
-      <input id="clientName" placeholder="Nom du client" value="Client">
-      <button class="btn" id="goBtn" onclick="analyze()">Analyser la mission</button>
-      <span class="foot">L'analyse interroge NVD, EPSS et le KEV en direct.</span>
-    </div>
-  </div>
-
-  <div id="results"></div>
-
-</div>
+<span id="kevState" style="display:none">&mdash;</span>
 
 <script>
-let assets = [];
+const STEPS = ["Contexte", "Comprehension", "Actifs", "Analyse", "Menaces", "Scenarios", "Rapport"];
+let S = { client:"", description:"", docs:[], scanAssets:[], text:"", summary:"", questions:[], assets:[], analysis:null, findings:[], keptFindings:[], orgrisks:[], boundaries:[], threats:[], threatIssues:[], threatGaps:[], scenarios:[], issues:[], report:"", step:1, maxDone:1, log:[] };
 
 async function loadHealth(){
-  try{
-    const r = await fetch('/health'); const d = await r.json();
-    document.getElementById('kevState').textContent = `KEV ${d.kev_count} · v${d.kev_version}`;
+  try{ const d = await (await fetch('/health')).json();
+    document.getElementById('kevState').textContent = 'KEV ' + d.kev_count + ' \u00b7 v' + d.kev_version;
   }catch(e){}
 }
 loadHealth();
 
-function addAsset(){
-  const name = document.getElementById('aName').value.trim();
-  const product = document.getElementById('aProduct').value.trim();
-  if(!name || !product){ alert("Donne au moins un nom et un produit."); return; }
-  assets.push({
-    name, product,
-    exposure: document.getElementById('aExposure').value,
-    criticality: document.getElementById('aCriticality').value,
-  });
-  document.getElementById('aName').value = '';
-  document.getElementById('aProduct').value = '';
-  renderAssets();
+function renderSidebar(){
+  const ic=[
+    '<path d="M4 5h16M4 12h16M4 19h10"/>',
+    '<path d="M8 10h8M8 14h5"/><path d="M21 12a8 8 0 1 1-3.5-6.6L21 4v5h-5"/>',
+    '<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
+    '<path d="M3 12h4l3 8 4-16 3 8h4"/>',
+    '<path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/>',
+    '<circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="12" r="2.4"/><circle cx="6" cy="18" r="2.4"/><path d="M8 7l8 4M8 17l8-4"/>',
+    '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>'
+  ];
+  let h='<div class="mark">C</div><ul class="nav">';
+  h+=STEPS.map((name,idx)=>{
+    const n=idx+1;
+    const locked=n>S.maxDone;
+    const cls=(n===S.step?'on':'')+(locked?' locked':'');
+    const click=locked?'':'onclick="goStep('+n+')"';
+    return '<li class="'+cls+'" '+click+'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">'+ic[idx]+'</svg><span class="tip">'+name+(locked?' \u00b7 verrouillé':'')+'</span></li>';
+  }).join('');
+  h+='</ul>';
+  document.getElementById('rail').innerHTML=h;
+}
+function goStep(n){ if(n>S.maxDone) return; S.step=n; render(); }
+
+function render(){
+  renderSidebar();
+  const v=document.getElementById('view');
+  if(S.step===1) v.innerHTML=viewDescription();
+  else if(S.step===2) v.innerHTML=viewUnderstanding();
+  else if(S.step===3) v.innerHTML=viewAssets();
+  else if(S.step===4) v.innerHTML=viewAnalysis();
+  else if(S.step===5) v.innerHTML=viewThreatModel();
+  else if(S.step===6) v.innerHTML=viewScenarios();
+  else if(S.step===7) v.innerHTML=viewReport();
 }
 
-function removeAsset(i){ assets.splice(i,1); renderAssets(); }
-
-function renderAssets(){
-  const el = document.getElementById('assetsList');
-  if(!assets.length){ el.innerHTML = '<div class="empty">Aucun actif. Ajoute-en au moins un.</div>'; return; }
-  el.innerHTML = assets.map((a,i)=>`
-    <div class="asset-chip">
-      <span class="nm">${a.name}</span>
-      <span class="pr">${a.product}</span>
-      <span class="lv">exp:${a.exposure} · crit:${a.criticality}</span>
-      <button class="x" onclick="removeAsset(${i})" title="retirer">✕</button>
-    </div>`).join('');
+/* ETAPE 1 */
+function viewDescription(){
+  return '<div class="card"><h2 class="sec">Rassembler le contexte</h2>'
+    + '<p class="sub">Donnez a l\'IA tout ce qui aide a comprendre le systeme du client : une description libre, des documents (PDF, Word, texte), ou les deux. Plus le contexte est riche, meilleure est l\'analyse.</p>'
+    + '<div style="margin-bottom:14px"><label>Nom du client</label>'
+    + '<input id="clientName" value="'+(S.client||'')+'" placeholder="Atlas Distribution" style="max-width:320px"></div>'
+    + '<label>Description libre (facultatif)</label>'
+    + '<textarea id="descText" oninput="S.description=this.value" placeholder="Ex : Une passerelle Fortinet FortiOS exposee sur Internet, un serveur Apache 2.4 pour le site vitrine, et une base MySQL interne avec les donnees de paie.">'+(S.description||'')+'</textarea>'
+    + '<div style="margin:12px 0"><input type="file" id="fileInput" accept=".pdf,.docx,.txt,.md,.csv,.log" style="display:none" onchange="doUpload(this)">'
+    + '<button class="btn sec" onclick="document.getElementById(\'fileInput\').click()">\u{1F4CE} Ajouter un document</button>'
+    + '<input type="file" id="scanInput" accept=".xml" style="display:none" onchange="doUploadScan(this)">'
+    + '<button class="btn sec" onclick="document.getElementById(\'scanInput\').click()" style="margin-left:8px">\u{1F5A5} Importer un scan (Nmap)</button>'
+    + '<span id="fileStatus" style="margin-left:10px;font-size:12px;color:var(--muted)"></span></div>'
+    + renderDocsList()
+    + renderScanInfo()
+    + '<div id="extractErr"></div>'
+    + '<div class="actions-bar"><button class="btn sec" onclick="skipToManual()">Saisie manuelle &rarr;</button>'
+    + '<button class="btn" id="extractBtn" onclick="doUnderstand()">Analyser le contexte &rarr;</button></div></div>';
 }
-
-function riskColor(r){ return r>0.5 ? 'var(--red)' : r>0.1 ? 'var(--amber)' : 'var(--teal)'; }
-
-async function analyze(){
-  if(!assets.length){ alert("Ajoute au moins un actif."); return; }
-  const btn = document.getElementById('goBtn'); btn.disabled = true;
-  const out = document.getElementById('results');
-  out.innerHTML = '<div class="loading"><span class="spinner"></span>Analyse en cours — interrogation des sources…</div>';
+function renderDocsList(){
+  if(!S.docs.length) return '';
+  const items=S.docs.map((d,i)=>'<div class="asset-chip"><span class="nm">\u{1F4C4} '+d.name+'</span>'
+    + '<span class="lv">'+d.text.length+' caracteres</span>'
+    + '<button class="x" onclick="removeDoc('+i+')" title="retirer">\u2715</button></div>').join('');
+  return '<div style="margin:6px 0 14px"><label>Sources ajoutees ('+S.docs.length+')</label>'+items+'</div>';
+}
+function renderScanInfo(){
+  if(!S.scanAssets || !S.scanAssets.length) return '';
+  const rows=S.scanAssets.map(a=>'<div class="asset-chip"><span class="nm">\u{1F5A5} '+(a.product||a.name)
+    +(a.version?' <b>'+a.version+'</b>':'')+'</span><span class="lv">'+a.exposure+'</span></div>').join('');
+  return '<div style="margin:6px 0 14px;padding:12px 14px;border:1px solid var(--teal);border-radius:10px;background:var(--teal-soft)">'
+    + '<div style="font-family:\'Space Grotesk\';font-weight:600;font-size:13px;margin-bottom:8px">\u2713 Scan importe \u2014 '+S.scanAssets.length+' actif(s) detecte(s) avec versions exactes</div>'
+    + rows
+    + '<button class="btn" onclick="useScanAssets()" style="margin-top:10px">Utiliser ces actifs &rarr;</button>'
+    + '<span style="font-size:12px;color:var(--muted);margin-left:10px">ou ajoutez une description ci-dessus pour le contexte metier</span></div>';
+}
+async function doUploadScan(input){
+  const file=input.files[0]; if(!file) return;
+  if(document.getElementById('descText')) S.description=document.getElementById('descText').value;
+  const st=document.getElementById('fileStatus'); st.textContent='Lecture du scan '+file.name+'...';
+  const fd=new FormData(); fd.append('file',file);
   try{
-    const resp = await fetch('/assess', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ client: document.getElementById('clientName').value || 'Client', assets })
-    });
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
-    render(await resp.json());
-  }catch(e){
-    out.innerHTML = `<div class="err">Erreur : ${e.message}. Le serveur tourne-t-il ? La clé NVD est-elle chargée ?</div>`;
-  }finally{ btn.disabled = false; }
+    const r=await fetch('/upload/scan',{method:'POST',body:fd});
+    const d=await r.json();
+    if(d.error||!d.count){ st.textContent='Erreur : '+(d.error||'aucun actif detecte dans le scan'); input.value=''; return; }
+    S.scanAssets=d.assets;
+    render();
+  }catch(e){ st.textContent='Erreur : '+e.message; }
+  input.value='';
+}
+function useScanAssets(){
+  S.client=document.getElementById('clientName').value||'Client';
+  if(document.getElementById('descText')) S.description=document.getElementById('descText').value;
+  // le contexte metier (description + docs) reste dans S.text pour les risques org / menaces
+  S.text=buildContext().trim();
+  // les actifs viennent du scan : exacts, pas besoin de l'IA pour les deviner
+  S.assets=S.scanAssets.map(a=>({name:a.name,product:a.product,exposure:a.exposure,criticality:a.criticality,context:a.context,version:a.version||''}));
+  S.step=3; S.maxDone=Math.max(S.maxDone,3); render();
+}
+function removeDoc(i){ S.docs.splice(i,1); render(); }
+function buildContext(){
+  const parts=[];
+  const desc=(S.description||'').trim();
+  if(desc) parts.push('[Description saisie par le consultant]\n'+desc);
+  S.docs.forEach(d=>parts.push('[Document : '+d.name+']\n'+d.text));
+  return parts.join('\n\n');
+}
+function skipToManual(){
+  S.client=document.getElementById('clientName').value||'Client';
+  if(!S.assets.length) S.assets=[{name:'',product:'',exposure:'MEDIUM',criticality:'MEDIUM',context:''}];
+  S.step=2; S.maxDone=Math.max(S.maxDone,2); render();
+}
+async function doUpload(input){
+  const file=input.files[0]; if(!file) return;
+  if(document.getElementById('descText')) S.description=document.getElementById('descText').value;
+  const st=document.getElementById('fileStatus'); st.textContent='Lecture de '+file.name+'...';
+  const fd=new FormData(); fd.append('file',file);
+  try{
+    const r=await fetch('/upload',{method:'POST',body:fd});
+    const d=await r.json();
+    if(d.error||!d.text){ st.textContent='Erreur : '+(d.error||'fichier vide'); input.value=''; return; }
+    S.docs.push({name:file.name, text:d.text});
+    render();
+  }catch(e){ st.textContent='Erreur : '+e.message; }
+  input.value='';
+}
+async function doUnderstand(){
+  S.client=document.getElementById('clientName').value||'Client';
+  if(document.getElementById('descText')) S.description=document.getElementById('descText').value;
+  S.text=buildContext().trim();
+  if(!S.text){ alert("Ajoutez une description ou au moins un document."); return; }
+  const btn=document.getElementById('extractBtn'); btn.disabled=true; btn.textContent='Analyse du contexte...';
+  try{
+    const r=await fetch('/understand',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:S.text})});
+    const d=await r.json();
+    if(d.error||!d.assets.length){ document.getElementById('extractErr').innerHTML='<div class="err">'+(d.error||"Aucun actif detecte.")+'</div>'; btn.disabled=false; btn.textContent='Analyser le contexte \u2192'; return; }
+    S.summary=d.summary||''; S.questions=(d.questions||[]).map(q=>({q:q,a:''}));
+    S.assets=d.assets.map(a=>({name:a.name||'',product:a.product||'',exposure:a.exposure||'MEDIUM',criticality:a.criticality||'MEDIUM',context:a.context||''}));
+    S.step=2; S.maxDone=Math.max(S.maxDone,2); render();
+  }catch(e){ document.getElementById('extractErr').innerHTML='<div class="err">'+e.message+'</div>'; btn.disabled=false; btn.textContent='Analyser le contexte \u2192'; }
 }
 
-function render(data){
-  let html = `<p class="eyebrow">Risque par actif — ${data.client}</p>`;
-  for(const a of data.assets){
-    const r = a.risk ?? 0;
-    html += `
-      <div class="asset-result">
-        <div class="info">
-          <div class="nm">${a.name}</div>
-          <div class="meta">${a.product} · ${a.determined} CVE${a.undetermined?` · ${a.undetermined} à coter`:''}</div>
-          <div class="bar"><div class="fill" style="width:${Math.round(r*100)}%;background:${riskColor(r)}"></div></div>
-        </div>
-        <div class="score"><div class="n" style="color:${riskColor(r)}">${r.toFixed(2)}</div><div class="lab">risque / 1</div></div>
-      </div>`;
+/* ETAPE 2 : comprehension */
+function viewUnderstanding(){
+  let h='<div class="card"><h2 class="sec">Ce que l\'IA a compris</h2>'
+    + '<p class="sub">Verifiez la comprehension du contexte. Repondez aux questions si vous le pouvez : vos reponses enrichissent l\'analyse. Puis validez.</p>';
+  h+='<div style="background:var(--input-bg);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:13.5px;line-height:1.6">'+ (S.summary||'(pas de synthese)') +'</div>';
+  if(S.questions.length){
+    h+='<label>Informations manquantes \u2014 repondez si possible</label>';
+    S.questions.forEach((item,i)=>{
+      h+='<div style="margin-bottom:10px"><div style="font-size:13px;margin-bottom:4px">\u2753 '+item.q+'</div>'
+        + '<input value="'+(item.a||'')+'" oninput="S.questions['+i+'].a=this.value" placeholder="Votre reponse (facultatif)"></div>';
+    });
+  }
+  h+='<p class="sub" style="margin-top:14px">'+S.assets.length+' actif(s) identifie(s). Vous les validerez a l\'etape suivante.</p>';
+  h+='<div class="actions-bar"><button class="btn sec" onclick="goStep(1)">&larr; Retour au contexte</button>'
+    + '<button class="btn" onclick="applyAnswers()">Continuer vers les actifs &rarr;</button></div></div>';
+  return h;
+}
+function applyAnswers(){
+  const answered=S.questions.filter(x=>x.a && x.a.trim());
+  if(answered.length){
+    S.text += '\n\n[Precisions du consultant]\n' + answered.map(x=>'- '+x.q+' : '+x.a).join('\n');
+  }
+  S.step=3; S.maxDone=Math.max(S.maxDone,3); render();
+}
+function skipToManual(){
+  S.client=document.getElementById('clientName').value||'Client';
+  if(!S.assets.length) S.assets=[{name:'',product:'',exposure:'MEDIUM',criticality:'MEDIUM',context:''}];
+  S.step=3; S.maxDone=Math.max(S.maxDone,3); render();
+}
+
+/* ETAPE 3 : actifs */
+function opt(sel){ return ['HIGH','MEDIUM','LOW'].map(v=>'<option '+(v===sel?'selected':'')+'>'+v+'</option>').join(''); }
+function viewAssets(){
+  const rows=S.assets.map((a,i)=>'<div class="arow">'
+    + '<div><label>Actif</label><input value="'+a.name+'" oninput="S.assets['+i+'].name=this.value" placeholder="Passerelle VPN"></div>'
+    + '<div><label>Produit</label><input value="'+a.product+'" oninput="S.assets['+i+'].product=this.value" placeholder="Fortinet FortiOS"></div>'
+    + '<div><label>Version</label><input value="'+(a.version||'')+'" oninput="S.assets['+i+'].version=this.value" placeholder="ex 2.4.52" style="font-family:\'IBM Plex Mono\',monospace"></div>'
+    + '<div><label>Exposition</label><select onchange="S.assets['+i+'].exposure=this.value">'+opt(a.exposure)+'</select></div>'
+    + '<div><label>Criticite</label><select onchange="S.assets['+i+'].criticality=this.value">'+opt(a.criticality)+'</select></div>'
+    + '<div><button class="x" onclick="S.assets.splice('+i+',1);render()">\u2715</button></div></div>').join('');
+  return '<div class="card"><h2 class="sec">Valider les actifs</h2>'
+    + '<p class="sub">Proposes par l\'IA ou detectes par scan. La version exacte affine la recherche de vulnerabilites. Corrigez, ajoutez, supprimez \u2014 c\'est vous qui decidez.</p>'
+    + rows
+    + '<button class="btn sec" onclick="S.assets.push({name:\'\',product:\'\',exposure:\'MEDIUM\',criticality:\'MEDIUM\',context:\'\',version:\'\'});render()" style="margin:4px 0 6px">+ Ajouter un actif</button>'
+    + '<div id="assessErr"></div>'
+    + '<div class="actions-bar"><button class="btn sec" onclick="goStep(3)">&larr; Retour</button>'
+    + '<button class="btn" id="assessBtn" onclick="doAssess()">Analyser les risques</button></div></div>';
+}
+async function doAssess(){
+  const valid=S.assets.filter(a=>a.name.trim()&&a.product.trim());
+  if(!valid.length){ alert("Au moins un actif avec un nom et un produit."); return; }
+  document.getElementById('view').innerHTML='<div class="card"><div class="loading"><span class="spinner"></span>Analyse \u2014 interrogation de NVD, EPSS et du KEV...</div></div>';
+  try{
+    const r=await fetch('/assess',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client:S.client,assets:valid})});
+    const d=await r.json();
+    S.analysis=d; S.findings=d.findings.map(f=>Object.assign({},f,{status:'proposed'})); S.log=[]; S.orgrisks=[];
+    S.step=4; S.maxDone=Math.max(S.maxDone,4); render();
+  }catch(e){ render(); document.getElementById('view').insertAdjacentHTML('beforeend','<div class="err">'+e.message+'</div>'); }
+}
+
+/* ETAPE 4 */
+function riskColor(r){ return r>0.5?'var(--red)':r>0.1?'var(--amber)':'var(--teal)'; }
+function validatedRisk(name){
+  const v=S.findings.filter(f=>f.asset===name&&f.status==='validated');
+  if(!v.length) return null; let c=1; v.forEach(f=>c*=(1-f.risk)); return 1-c;
+}
+function setStatus(i,st){
+  const f=S.findings[i]; if(f.status===st) st='proposed'; f.status=st; render();
+}
+
+function analysisGlobalRisk(){
+  if(!S.findings||!S.findings.length) return null;
+  const val=S.findings.filter(f=>f.status==='validated');
+  const base=val.length?val:S.findings.filter(f=>f.status!=='dismissed');
+  if(!base.length) return null;
+  let c=1; base.forEach(f=>{ if(typeof f.risk==='number') c*=(1-f.risk); });
+  return 1-c;
+}
+function meridianSVG(r){
+  const x=Math.max(0,Math.min(1,r))*1000;
+  const col=r>0.5?'#FF6155':r>0.15?'#F5B44C':'#2FD9BE';
+  return '<svg viewBox="0 0 1000 38" preserveAspectRatio="none">'
+    +'<defs><linearGradient id="mg" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#2FD9BE"/><stop offset="0.55" stop-color="#F5B44C"/><stop offset="1" stop-color="#FF6155"/></linearGradient>'
+    +'<filter id="mgl"><feGaussianBlur stdDeviation="3.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>'
+    +'<line x1="0" y1="26" x2="1000" y2="26" stroke="#22303D" stroke-width="1"/>'
+    +'<g stroke="#18222E" stroke-width="1"><line x1="0" y1="20" x2="0" y2="32"/><line x1="250" y1="21" x2="250" y2="31"/><line x1="500" y1="21" x2="500" y2="31"/><line x1="750" y1="21" x2="750" y2="31"/><line x1="1000" y1="20" x2="1000" y2="32"/></g>'
+    +'<line x1="0" y1="26" x2="'+x+'" y2="26" stroke="url(#mg)" stroke-width="2.5" filter="url(#mgl)"/>'
+    +'<circle cx="'+x+'" cy="26" r="7" fill="'+col+'" filter="url(#mgl)"/><circle cx="'+x+'" cy="26" r="3" fill="#0A0E13"/>'
+    +'<text x="0" y="12" fill="#556777" font-family="IBM Plex Mono" font-size="10">0.0</text>'
+    +'<text x="486" y="12" fill="#556777" font-family="IBM Plex Mono" font-size="10">0.5</text>'
+    +'<text x="974" y="12" fill="#556777" font-family="IBM Plex Mono" font-size="10">1.0</text></svg>';
+}
+
+function viewAnalysis(){
+  const A=S.analysis;
+  const gr=analysisGlobalRisk();
+  const grTag = gr==null?'':(gr>0.5?'Élevé':gr>0.15?'Modéré':'Faible');
+  const grCol = gr==null?'var(--muted)':(gr>0.5?'var(--red)':gr>0.15?'var(--amber)':'var(--teal)');
+
+  // 3 lectures, calculées sur les vraies données
+  const crit=S.findings.filter(f=>f.status!=='dismissed' && (f.in_kev || (f.cvss!=null && f.cvss>=9))).length;
+  const kevN=S.findings.filter(f=>f.status!=='dismissed' && f.in_kev).length;
+  const orgN=S.orgrisks.length;
+  const expo=(S.assets||[]).filter(a=>(a.exposure||'').toUpperCase()==='HIGH').length;
+
+  let h='';
+
+  // --- entête ---
+  h+='<div class="an-head"><div>'
+   + '<div class="eyebrow">Analyse de risque</div>'
+   + '<div class="mn">'+(A.client||'Mission')+'</div>'
+   + '<div class="cl">'+(S.assets?S.assets.length:0)+' actifs \u00b7 '+S.findings.length+' vulnérabilités identifiées</div>'
+   + '</div><div class="stamp"><div><b>Sources</b> NVD \u00b7 EPSS \u00b7 CISA KEV</div>'
+   + '<div><b>Méthode</b> IA propose \u00b7 humain valide \u00b7 moteur calcule</div></div></div>';
+
+  // --- méridien de risque (signature) ---
+  if(gr!=null){
+    h+='<div class="meridian"><div class="cap">'
+     + '<div class="lvl">'+gr.toFixed(2)+'<small>indice de risque agrégé</small></div>'
+     + '<div class="tag" style="color:'+grCol+';border:1px solid '+grCol+'55;background:'+grCol+'14">'+grTag+'</div></div>'
+     + '<div class="track">'+meridianSVG(gr)+'</div></div>';
   }
 
-  html += `<p class="eyebrow" style="margin-top:22px">Priorités — quoi corriger d'abord</p><div class="card" style="padding:6px 4px">
-    <table><thead><tr><th>#</th><th>Actif</th><th>CVE</th><th>CVSS</th><th>EPSS</th><th>État</th><th style="text-align:right">Risque</th></tr></thead><tbody>`;
-  data.findings.forEach((f,i)=>{
-    const kev = f.in_kev ? '<span class="pill kev">exploitée</span>' : '<span class="pill no">—</span>';
-    html += `<tr>
-      <td class="num">${i+1}</td>
-      <td>${f.asset}</td>
-      <td class="cve">${f.cve_id}</td>
-      <td class="num">${f.cvss ?? '—'}</td>
-      <td class="num">${f.epss!=null ? f.epss.toFixed(3) : '—'}</td>
-      <td>${kev}</td>
-      <td class="riskcell" style="color:${riskColor(f.risk)}">${f.risk.toFixed(4)}</td>
-    </tr>`;
+  // --- synthèse assistée (mise en avant) ---
+  if(S.summary){
+    h+='<div class="synth"><div class="lab"><span class="dot"></span>Synthèse assistée</div><p>'+S.summary+'</p></div>';
+  }
+
+  // --- 3 lectures ---
+  h+='<div class="reads">'
+   + '<div class="read"><div class="k">Vulnérabilités critiques</div><div class="v" style="color:var(--red)">'+crit+'</div><div class="s">'+(kevN?('dont '+kevN+' activement exploitée'+(kevN>1?'s':'')):'sur les actifs analysés')+'</div></div>'
+   + '<div class="read"><div class="k">Risques organisationnels</div><div class="v" style="color:var(--amber)">'+orgN+'</div><div class="s">'+(orgN?'accès \u00b7 gouvernance \u00b7 processus':'à identifier ci-dessous')+'</div></div>'
+   + '<div class="read"><div class="k">Surface exposée</div><div class="v" style="color:var(--teal)">'+expo+'</div><div class="s">actif'+(expo>1?'s':'')+' joignable'+(expo>1?'s':'')+' depuis Internet</div></div>'
+   + '</div>';
+
+  // --- par actif : risque validé/proposé (barres) ---
+  for(const a of A.assets){
+    const vr=validatedRisk(a.name); const shown=vr!=null?vr:(a.risk||0);
+    h+='<div class="asset-result"><div><div class="nm">'+a.name+'</div>'
+      + '<div class="meta">'+a.product+' \u00b7 '+a.determined+' CVE'+(a.undetermined?' \u00b7 '+a.undetermined+' a coter':'')+'</div>'
+      + '<div class="bar"><div class="fill" style="width:'+Math.round(shown*100)+'%;background:'+riskColor(shown)+'"></div></div></div>'
+      + '<div class="score"><div class="n" style="color:'+riskColor(shown)+'">'+shown.toFixed(2)+'</div>'
+      + '<div class="lab">'+(vr!=null?'risque validé':'risque proposé')+'</div></div></div>';
+  }
+
+  // --- preuve : vulnérabilités sourcées ---
+  h+='<div class="evsec" style="margin-top:26px"><h2>Preuve \u2014 vulnérabilités sourcées</h2>'
+   + '<div class="note">chaque ligne provient de <b>NVD</b>, jamais de l\'IA</div></div>';
+  h+='<table><thead><tr><th>#</th><th>Actif</th><th>CVE</th><th>CVSS</th><th>EPSS</th><th>KEV</th><th style="text-align:right">Risque</th><th></th></tr></thead><tbody>';
+  S.findings.forEach((f,i)=>{
+    const kev=f.in_kev?'<span class="pill kev">exploitée</span>':'<span class="pill no">\u2014</span>';
+    const act=f.status==='proposed'
+      ? '<button class="mini ok" onclick="setStatus('+i+',\'validated\')">Valider</button> <button class="mini no" onclick="setStatus('+i+',\'dismissed\')">Écarter</button>'
+      : '<button class="mini undo" onclick="setStatus('+i+',\'proposed\')">Annuler</button>';
+    const caret = f._open?'\u25BE':'\u25B8';
+    h+='<tr class="'+f.status+'"><td class="num">'+(i+1)+'</td><td>'+f.asset+'</td>'
+      + '<td class="cve" style="cursor:pointer" onclick="toggleCve('+i+')"><span style="color:var(--faint);font-size:9px;margin-right:4px">'+caret+'</span>'+f.cve_id+'</td>'
+      + '<td class="num">'+(f.cvss!=null?f.cvss:'\u2014')+'</td><td class="num">'+(f.epss!=null?f.epss.toFixed(3):'\u2014')+'</td>'
+      + '<td>'+kev+'</td><td class="riskcell" style="color:'+riskColor(f.risk)+'">'+f.risk.toFixed(4)+'</td><td>'+act+'</td></tr>';
+    if(f._open) h+=renderCveDetail(f);
   });
-  html += `</tbody></table></div>
-    <p class="foot">Chaque chiffre vient d'une source publique (NVD · EPSS · CISA KEV). Prochaine étape : validation par le consultant.</p>`;
-  document.getElementById('results').innerHTML = html;
+  h+='</tbody></table>';
+
+  h+=renderOrgRisks();
+  h+='<div class="actions-bar" style="margin-top:22px">'
+    + '<button class="btn sec" onclick="goStep(3)">&larr; Retour</button>'
+    + '<button class="btn" onclick="toThreatModel()">Continuer vers les menaces &rarr;</button></div>';
+  return h;
 }
+function sevColor(s){ return s==='HIGH'?'var(--red)':s==='MEDIUM'?'var(--amber)':'var(--teal)'; }
+function toggleCve(i){ S.findings[i]._open=!S.findings[i]._open; render(); }
+function remediation(f){
+  let prio,pcol,why;
+  if(f.in_kev){ prio='Priorite absolue'; pcol='var(--red)';
+    why='Vulnerabilite activement exploitee (catalogue CISA KEV) : a corriger en priorite absolue.'; }
+  else if(f.epss!=null && f.epss>=0.5){ prio='Urgent'; pcol='var(--red)';
+    why='Probabilite d\'exploitation elevee (EPSS '+(f.epss*100).toFixed(0)+'%) : corriger sans attendre.'; }
+  else if(f.epss!=null && f.epss>=0.1){ prio='A traiter rapidement'; pcol='var(--amber)';
+    why='Probabilite d\'exploitation moderee (EPSS '+(f.epss*100).toFixed(0)+'%).'; }
+  else { prio='A planifier'; pcol='var(--teal)';
+    why='Probabilite d\'exploitation faible a ce jour : traiter dans le cycle de mise a jour.'; }
+  const prod=f.product||'le composant concerne';
+  const vtxt=f.version?(' (version installee : '+f.version+')'):'';
+  const action='Appliquer le correctif de securite de l\'editeur pour '+prod+vtxt
+    +', ou monter vers une version non affectee. Si le correctif ne peut etre applique tout de suite, '
+    +'reduire l\'exposition de l\'actif (segmentation reseau, filtrage, restriction des acces).';
+  return {prio,pcol,why,action,nvd:'https://nvd.nist.gov/vuln/detail/'+f.cve_id};
+}
+function renderCveDetail(f){
+  const r=remediation(f);
+  const sev=f.cvss_severity?('<span class="pill" style="background:'+sevColor(f.cvss_severity)+';color:#0A1017;font-weight:600">'+f.cvss_severity+'</span> '):'';
+  const desc=f.description?f.description:'Description non disponible pour cette CVE.';
+  return '<tr class="cve-detail"><td></td><td colspan="7" style="padding:0 0 14px">'
+    + '<div style="background:var(--input-bg);border:1px solid var(--line);border-left:3px solid '+r.pcol+';border-radius:9px;padding:14px 16px">'
+    + '<div style="font-family:\'IBM Plex Mono\';font-size:11px;color:var(--muted);margin-bottom:6px">'+sev+'Description (source NVD)</div>'
+    + '<div style="font-size:13px;line-height:1.55;color:var(--ink);margin-bottom:14px">'+desc+'</div>'
+    + '<div style="display:flex;align-items:center;gap:9px;margin-bottom:6px">'
+    + '<span style="font-family:\'Space Grotesk\';font-weight:600;font-size:12.5px">Remediation</span>'
+    + '<span class="pill" style="background:'+r.pcol+';color:#0A1017;font-weight:600;font-size:10px">'+r.prio+'</span></div>'
+    + '<div style="font-size:12.5px;color:var(--muted);margin-bottom:6px">'+r.why+'</div>'
+    + '<div style="font-size:13px;line-height:1.55;color:var(--ink);margin-bottom:10px">'+r.action+'</div>'
+    + '<a href="'+r.nvd+'" target="_blank" style="font-size:12px;color:var(--teal-ink);text-decoration:none">Fiche NVD complete &rarr;</a>'
+    + '</div></td></tr>';
+}
+function renderOrgRisks(){
+  let h='<div style="margin-top:26px;padding-top:18px;border-top:1px solid var(--line)">';
+  h+='<p class="eyebrow" style="margin-bottom:8px">Risques organisationnels (non-techniques)</p>';
+  if(!S.orgrisks.length){
+    h+='<p class="sub" style="margin-bottom:10px">Failles d\'organisation, d\'acces, de processus reperees dans le contexte fourni \u2014 au-dela des CVE.</p>'
+      + '<button class="btn sec" id="orgBtn" onclick="doOrgRisks()">Identifier les risques organisationnels</button>'
+      + '<div id="orgErr"></div></div>';
+    return h;
+  }
+  S.orgrisks.forEach((r,i)=>{
+    const dim = r.status==='dismissed' ? 'opacity:.45;' : '';
+    const act = r.status==='validated'
+      ? '<span class="state v">\u2713 valide</span> <button class="mini undo" onclick="setOrg('+i+',\'proposed\')">Annuler</button>'
+      : r.status==='dismissed'
+      ? '<button class="mini undo" onclick="setOrg('+i+',\'proposed\')">Annuler</button>'
+      : '<button class="mini ok" onclick="setOrg('+i+',\'validated\')">Valider</button> <button class="mini no" onclick="setOrg('+i+',\'dismissed\')">Ecarter</button>';
+    h+='<div class="scenario" style="border-left-color:'+sevColor(r.severity)+';'+dim+'">'
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'
+      + '<span class="pill" style="background:var(--line-soft);color:var(--muted)">'+r.category+'</span>'
+      + '<span class="pill" style="background:'+sevColor(r.severity)+';color:#fff">'+r.severity+'</span>'
+      + '<span style="margin-left:auto">'+act+'</span></div>'
+      + '<div style="font-size:13px;margin-bottom:6px">'+r.description+'</div>'
+      + '<div class="why" style="border:none;padding:0">Source : '+(r.source||'contexte')+'</div></div>';
+  });
+  return h+'</div>';
+}
+function setOrg(i,st){ const r=S.orgrisks[i]; r.status=(r.status===st?'proposed':st); render(); }
+async function doOrgRisks(){
+  const btn=document.getElementById('orgBtn'); if(btn){ btn.disabled=true; btn.textContent='Analyse en cours...'; }
+  try{
+    const r=await fetch('/orgrisks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:S.text})});
+    const d=await r.json();
+    if(d.error){ document.getElementById('orgErr').innerHTML='<div class="err">'+d.error+'</div>'; if(btn){btn.disabled=false;btn.textContent='Identifier les risques organisationnels';} return; }
+    S.orgrisks=(d.risks||[]).map(x=>Object.assign({},x,{status:'proposed'}));
+    if(!S.orgrisks.length){ document.getElementById('orgErr').innerHTML='<p class="sub">Aucun risque organisationnel identifie dans le contexte fourni.</p>'; if(btn){btn.disabled=false;btn.textContent='Relancer';} return; }
+    render();
+  }catch(e){ document.getElementById('orgErr').innerHTML='<div class="err">'+e.message+'</div>'; if(btn){btn.disabled=false;btn.textContent='Identifier les risques organisationnels';} }
+}
+function toThreatModel(){
+  const kept=S.findings.filter(f=>f.status==='validated');
+  const base=kept.length?kept:S.findings.filter(f=>f.status!=='dismissed');
+  S.keptFindings=base.map(f=>({asset:f.asset,cve_id:f.cve_id,cvss:f.cvss,epss:f.epss,in_kev:f.in_kev}));
+  S.boundaries=[]; S.threats=[]; S.threatIssues=[];
+  S.scenarios=[]; S.issues=[];
+  S.step=5; S.maxDone=Math.max(S.maxDone,5); render();
+}
+
+/* ETAPE 5 : threat model STRIDE */
+const STRIDE_LABELS={S:'Spoofing',T:'Tampering',R:'Repudiation',I:'Info. disclosure',D:'Denial of service',E:'Elevation of priv.'};
+const DIAG={ink:'#E7EEF4',muted:'#8A99A8',faint:'#5C6B79',line:'#24323F',red:'#F05A4A',redSoft:'#2A1512',amber:'#E0912B',amberSoft:'#2A2110',teal:'#1FBFA0',tealSoft:'#123029',panel:'#182531'};
+function sevHex(s){ return s==='HIGH'?DIAG.red:s==='MEDIUM'?DIAG.amber:DIAG.teal; }
+function trunc(s,n){ s=s||''; return s.length>n?s.slice(0,n-1)+'\u2026':s; }
+function renderDiagram(){
+  const W=720, zoneH=132, bH=38;
+  const zones=[
+    {key:'HIGH',   label:'EXPOSE (INTERNET)',      tint:DIAG.redSoft,   line:'#5A2A24'},
+    {key:'MEDIUM', label:'INTERMEDIAIRE / DMZ',    tint:DIAG.amberSoft, line:'#5A4620'},
+    {key:'LOW',    label:'INTERNE',                tint:DIAG.tealSoft,  line:'#1E4A40'}
+  ];
+  const byZone={HIGH:[],MEDIUM:[],LOW:[]};
+  (S.analysis.assets||[]).forEach(a=>{ (byZone[a.exposure]||byZone.MEDIUM).push(a); });
+  const tcount={},tmax={},rank={LOW:1,MEDIUM:2,HIGH:3};
+  S.threats.forEach(t=>{ if(t.verified===false) return; tcount[t.asset]=(tcount[t.asset]||0)+1; if(!tmax[t.asset]||rank[t.severity]>rank[tmax[t.asset]]) tmax[t.asset]=t.severity; });
+  let y=42, svg='';
+  svg+='<text x="'+(W/2)+'" y="18" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="'+DIAG.red+'">\u25B2 Attaquant</text>';
+  svg+='<line x1="'+(W/2)+'" y1="24" x2="'+(W/2)+'" y2="40" stroke="'+DIAG.red+'" stroke-width="1.5" marker-end="url(#ar)"/>';
+  zones.forEach((z,zi)=>{
+    svg+='<rect x="0" y="'+y+'" width="'+W+'" height="'+zoneH+'" rx="10" fill="'+z.tint+'" stroke="'+z.line+'"/>';
+    svg+='<text x="14" y="'+(y+19)+'" font-family="IBM Plex Mono" font-size="10" letter-spacing="1" fill="'+DIAG.muted+'">'+z.label+'</text>';
+    const assets=byZone[z.key], bw=158, bh=60, gap=16; let x=20; const ay=y+34;
+    if(!assets.length) svg+='<text x="20" y="'+(ay+34)+'" font-family="Inter" font-size="12" fill="'+DIAG.faint+'">Aucun actif dans cette zone</text>';
+    assets.forEach(a=>{
+      const n=tcount[a.name]||0, sev=tmax[a.name]||'LOW', col=n?sevHex(sev):DIAG.line;
+      svg+='<rect x="'+x+'" y="'+ay+'" width="'+bw+'" height="'+bh+'" rx="8" fill="'+DIAG.panel+'" stroke="'+col+'" stroke-width="1.5"/>';
+      svg+='<text x="'+(x+12)+'" y="'+(ay+23)+'" font-family="Space Grotesk" font-weight="600" font-size="12.5" fill="'+DIAG.ink+'">'+trunc(a.name,17)+'</text>';
+      svg+='<text x="'+(x+12)+'" y="'+(ay+41)+'" font-family="IBM Plex Mono" font-size="9.5" fill="'+DIAG.muted+'">'+trunc(a.product,20)+'</text>';
+      if(n){ svg+='<rect x="'+(x+bw-44)+'" y="'+(ay+bh-23)+'" width="36" height="16" rx="8" fill="'+sevHex(sev)+'"/>'
+        + '<text x="'+(x+bw-26)+'" y="'+(ay+bh-11)+'" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="#fff">'+n+' \u26A0</text>'; }
+      x+=bw+gap;
+    });
+    y+=zoneH;
+    if(zi<zones.length-1){
+      const by=y+bH/2;
+      svg+='<line x1="20" y1="'+by+'" x2="'+(W-20)+'" y2="'+by+'" stroke="'+DIAG.faint+'" stroke-width="1.4" stroke-dasharray="6 5"/>';
+      const bl=S.boundaries[zi]||'Frontiere de confiance';
+      const tw=Math.min(300, 20+bl.length*6);
+      svg+='<rect x="'+(W/2-tw/2)+'" y="'+(by-11)+'" width="'+tw+'" height="22" rx="11" fill="'+DIAG.panel+'" stroke="'+DIAG.line+'"/>';
+      svg+='<text x="'+(W/2)+'" y="'+(by+4)+'" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5" fill="'+DIAG.muted+'">\u26A1 '+trunc(bl,40)+'</text>';
+      y+=bH;
+    }
+  });
+  return '<svg viewBox="0 0 '+W+' '+(y+14)+'" style="width:100%;height:auto">'
+    + '<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="'+DIAG.red+'"/></marker></defs>'
+    + svg + '</svg>';
+}
+function viewThreatModel(){
+  if(!S.threats.length){
+    return '<div class="card"><h2 class="sec">Modele de menaces (STRIDE)</h2>'
+      + '<p class="sub">Cartographie systematique : pour chaque actif, l\'IA passe en revue les 6 categories de menaces STRIDE (methodologie OWASP). Cette vue d\'ensemble nourrit ensuite les scenarios d\'attaque.</p>'
+      + '<div id="tmErr"></div>'
+      + '<div class="actions-bar"><button class="btn sec" onclick="goStep(4)">&larr; Retour</button>'
+      + '<button class="btn" id="tmBtn" onclick="doThreatModel()">Construire le modele de menaces</button></div></div>';
+  }
+  let h='<div class="card"><h2 class="sec">Modele de menaces (STRIDE) \u2014 '+S.client+'</h2>';
+  h+='<p class="eyebrow" style="margin-bottom:8px">Cartographie de l\'architecture et des zones de confiance</p>';
+  h+='<div style="border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:18px;background:var(--input-bg)">'+renderDiagram()+'</div>';
+  if(S.boundaries.length){
+    h+='<p class="eyebrow" style="margin-bottom:6px">Frontieres de confiance</p><div style="margin-bottom:16px">';
+    h+=S.boundaries.map(b=>'<span class="pill" style="background:var(--line-soft);color:var(--muted);margin-right:6px">'+b+'</span>').join('');
+    h+='</div>';
+  }
+  // menaces groupees par actif
+  const byAsset={};
+  S.threats.forEach(t=>{ (byAsset[t.asset]=byAsset[t.asset]||[]).push(t); });
+  Object.keys(byAsset).forEach(asset=>{
+    h+='<div style="margin-bottom:14px"><div style="font-family:\'Space Grotesk\';font-weight:600;font-size:14px;margin-bottom:8px">'+asset+'</div>';
+    h+='<table><thead><tr><th>STRIDE</th><th>Menace</th><th style="text-align:right">Gravite</th></tr></thead><tbody>';
+    byAsset[asset].forEach(t=>{
+      const flag = t.verified===false;
+      const cat = STRIDE_LABELS[t.category]||t.category;
+      h+='<tr'+(flag?' style="opacity:.5"':'')+'><td><span class="pill" style="background:var(--ink);color:#fff">'+t.category+'</span> <span style="font-size:11px;color:var(--muted)">'+cat+'</span></td>'
+        + '<td>'+t.threat+(flag?' <span style="color:var(--red)">(actif non reconnu)</span>':'')+'</td>'
+        + '<td class="riskcell" style="color:'+sevColor(t.severity)+'">'+t.severity+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  });
+  h+=renderGaps();
+  h+='<div class="actions-bar" style="margin-top:14px"><button class="btn sec" onclick="goStep(4)">&larr; Retour</button>'
+    + '<button class="btn" onclick="S.step=6;S.maxDone=Math.max(S.maxDone,6);render()">Continuer vers les scenarios &rarr;</button></div></div>';
+  return h;
+}
+function renderGaps(){
+  if(!S.threatGaps.length) return '';
+  let h='<div style="margin-top:22px;padding:16px 18px;border:1px dashed var(--amber);border-radius:10px;background:var(--amber-soft)">';
+  h+='<div style="font-family:\'Space Grotesk\';font-weight:600;font-size:14px;margin-bottom:4px">\u21BA Pour completer l\'analyse</div>';
+  h+='<p style="font-size:12.5px;color:var(--amber);margin:0 0 12px">L\'IA signale des informations manquantes pour affiner le modele et le diagramme. Repondez a ce que vous pouvez, puis relancez.</p>';
+  S.threatGaps.forEach((g,i)=>{
+    h+='<div style="margin-bottom:9px"><div style="font-size:13px;margin-bottom:4px">'+g.q+'</div>'
+      + '<input value="'+(g.a||'')+'" oninput="S.threatGaps['+i+'].a=this.value" placeholder="Votre reponse (facultatif)" style="background:var(--input-bg)"></div>';
+  });
+  h+='<button class="btn" onclick="completeAndRerun()" style="margin-top:6px">Completer et relancer</button></div>';
+  return h;
+}
+function completeAndRerun(){
+  const answered=S.threatGaps.filter(g=>g.a&&g.a.trim());
+  if(!answered.length){ alert("Repondez a au moins une question, ou continuez vers les scenarios."); return; }
+  S.text += '\n\n[Precisions pour le modele de menaces]\n' + answered.map(g=>'- '+g.q+' : '+g.a).join('\n');
+  S.threats=[]; S.boundaries=[]; S.threatIssues=[]; S.threatGaps=[];
+  render();          // revient a la vue "construire" (threats vide)
+  doThreatModel();   // relance directement avec le contexte enrichi
+}
+async function doThreatModel(){
+  const btn=document.getElementById('tmBtn'); if(btn){ btn.disabled=true; btn.textContent='Modelisation en cours...'; }
+  try{
+    const r=await fetch('/threatmodel',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({client:S.client,assets:S.analysis.assets,findings:S.keptFindings,context:S.text})});
+    const d=await r.json();
+    if(d.error){ document.getElementById('tmErr').innerHTML='<div class="err">'+d.error+'</div>'; if(btn){btn.disabled=false;btn.textContent='Construire le modele de menaces';} return; }
+    S.boundaries=d.boundaries||[]; S.threats=d.threats||[]; S.threatIssues=d.issues||[];
+    S.threatGaps=(d.gaps||[]).map(g=>({q:g,a:''}));
+    if(!S.threats.length){ document.getElementById('tmErr').innerHTML='<p class="sub">Aucune menace identifiee.</p>'; if(btn){btn.disabled=false;btn.textContent='Relancer';} return; }
+    render();
+  }catch(e){ document.getElementById('tmErr').innerHTML='<div class="err">'+e.message+'</div>'; if(btn){btn.disabled=false;btn.textContent='Construire le modele de menaces';} }
+}
+
+/* ETAPE 6 */
+function viewScenarios(){
+  if(!S.scenarios.length){
+    return '<div class="card"><h2 class="sec">Scenarios d\'attaque</h2>'
+      + '<p class="sub">L\'IA relie les vulnerabilites validees en chemins d\'attaque (logique EBIOS). Le code verifie ensuite que chaque CVE citee existe vraiment.</p>'
+      + '<p style="font-size:13px;color:var(--muted)">'+(S.keptFindings.length||0)+' vulnerabilites retenues pour le chainage.</p>'
+      + '<div id="scErr"></div><div class="actions-bar"><button class="btn sec" onclick="goStep(5)">&larr; Retour</button>'
+      + '<button class="btn" id="scBtn" onclick="doScenarios()">Construire les scenarios</button></div></div>';
+  }
+  let h='<div class="card"><h2 class="sec">Scenarios d\'attaque</h2>';
+  if(S.issues.length) h+='<div class="warn">\u26a0 '+S.issues.length+' CVE citee(s) par l\'IA absente(s) de l\'analyse \u2014 signalee(s) en rouge. A verifier avant de retenir le scenario.</div>';
+  S.scenarios.forEach(s=>{
+    const chain=s.steps.map((st,i)=>{
+      const cls=st.verified===false?'flag':(st.verified===null?'pivot':'');
+      const c=st.cve?'<span class="c">'+st.cve+(st.verified===false?' \u2717':'')+'</span>':'<span class="c">pivot</span>';
+      return (i?'<span class="arr">&rarr;</span>':'')+'<span class="node '+cls+'">'+st.asset+c+'</span>';
+    }).join('');
+    h+='<div class="scenario"><h3>'+s.title+'</h3><div class="schain">'+chain+'</div><div class="why">'+(s.rationale||'')+'</div></div>';
+  });
+  h+='<div class="actions-bar"><button class="btn sec" onclick="goStep(5)">&larr; Retour</button>'
+    + '<button class="btn" onclick="S.step=7;S.maxDone=Math.max(S.maxDone,7);render()">Continuer vers le rapport &rarr;</button></div></div>';
+  return h;
+}
+async function doScenarios(){
+  const btn=document.getElementById('scBtn'); btn.disabled=true; btn.textContent='Construction...';
+  try{
+    const r=await fetch('/scenarios',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({client:S.client,assets:S.analysis.assets,findings:S.keptFindings})});
+    const d=await r.json();
+    if(d.error){ document.getElementById('scErr').innerHTML='<div class="err">'+d.error+'</div>'; btn.disabled=false; btn.textContent='Construire les scenarios'; return; }
+    S.scenarios=d.scenarios; S.issues=d.issues||[]; render();
+  }catch(e){ document.getElementById('scErr').innerHTML='<div class="err">'+e.message+'</div>'; btn.disabled=false; btn.textContent='Construire les scenarios'; }
+}
+
+/* ETAPE 5 */
+function viewReport(){
+  if(!S.report){
+    const today=new Date().toISOString().slice(0,10);
+    return '<div class="card"><h2 class="sec">Generer le rapport</h2>'
+      + '<p class="sub">L\'IA redige le livrable client a partir des donnees validees. Les metadonnees evitent toute invention.</p>'
+      + '<div class="arow" style="grid-template-columns:1fr 1fr 1fr">'
+      + '<div><label>Date</label><input id="repDate" value="'+today+'"></div>'
+      + '<div><label>Consultant</label><input id="repCons" placeholder="A. Belghazi"></div>'
+      + '<div><label>Reference mission</label><input id="repRef" placeholder="MISSION-2026-001"></div></div>'
+      + '<div id="repErr"></div><div class="actions-bar"><button class="btn sec" onclick="goStep(6)">&larr; Retour</button>'
+      + '<button class="btn" id="repBtn" onclick="doReport()">Generer le rapport</button></div></div>';
+  }
+  return '<div class="card"><div class="actions-bar" style="margin-bottom:16px">'
+    + '<h2 class="sec" style="margin:0">Rapport \u2014 '+S.client+'</h2>'
+    + '<div><button class="btn sec" onclick="S.report=\'\';render()">Regenerer</button> '
+    + '<button class="btn sec" onclick="downloadReport()">.md</button> '
+    + '<button class="btn" id="pdfBtn" onclick="downloadPdf()">\u2193 Telecharger le PDF</button></div></div>'
+    + '<div class="report">'+mdToHtml(S.report)+'</div></div>';
+}
+async function doReport(){
+  const btn=document.getElementById('repBtn'); btn.disabled=true; btn.textContent='Redaction...';
+  const extra={date:document.getElementById('repDate').value,consultant:document.getElementById('repCons').value,reference:document.getElementById('repRef').value};
+  S.meta=extra;
+  try{
+    const r=await fetch('/report',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(Object.assign({client:S.client,assets:S.analysis.assets,findings:S.keptFindings,scenarios:S.scenarios},extra))});
+    const d=await r.json();
+    if(d.error||!d.report){ document.getElementById('repErr').innerHTML='<div class="err">'+(d.error||'Echec de generation.')+'</div>'; btn.disabled=false; btn.textContent='Generer le rapport'; return; }
+    S.report=d.report; render();
+  }catch(e){ document.getElementById('repErr').innerHTML='<div class="err">'+e.message+'</div>'; btn.disabled=false; btn.textContent='Generer le rapport'; }
+}
+function downloadReport(){
+  const blob=new Blob([S.report],{type:'text/markdown'}); const u=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=u; a.download='rapport_'+S.client.replace(/\s+/g,'_')+'.md'; a.click(); URL.revokeObjectURL(u);
+}
+async function downloadPdf(){
+  const btn=document.getElementById('pdfBtn'); if(btn){ btn.disabled=true; btn.textContent='Generation du PDF...'; }
+  // rassemble UNIQUEMENT ce que le consultant a valide
+  const valF=S.findings.filter(f=>f.status==='validated');
+  const findings=(valF.length?valF:S.findings.filter(f=>f.status!=='dismissed'))
+    .map(f=>({asset:f.asset,cve_id:f.cve_id,cvss:f.cvss,epss:f.epss,in_kev:f.in_kev,risk:f.risk}));
+  const orgrisks=S.orgrisks.filter(r=>r.status==='validated')
+    .map(r=>({category:r.category,description:r.description,severity:r.severity,source:r.source}));
+  const threats=S.threats.filter(t=>t.verified!==false)
+    .map(t=>({asset:t.asset,category:t.category,threat:t.threat,severity:t.severity,verified:true}));
+  const meta=S.meta||{};
+  const payload={client:S.client,date:meta.date||'',consultant:meta.consultant||'',reference:meta.reference||'',
+    summary:S.report||'',findings:findings,orgrisks:orgrisks,threats:threats,scenarios:S.scenarios||[]};
+  try{
+    const r=await fetch('/report/pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok){ throw new Error('Echec de generation du PDF ('+r.status+')'); }
+    const blob=await r.blob(); const u=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=u; a.download='rapport_cysymo_'+S.client.replace(/\s+/g,'_')+'.pdf'; a.click(); URL.revokeObjectURL(u);
+  }catch(e){ alert(e.message); }
+  if(btn){ btn.disabled=false; btn.textContent='\u2193 Telecharger le PDF'; }
+}
+function mdToHtml(md){
+  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const lines=md.split('\n'); let h='',inList=false;
+  for(let raw of lines){
+    let l=esc(raw).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+    if(/^##\s+/.test(l)){ if(inList){h+='</ul>';inList=false;} h+='<h2>'+l.replace(/^##\s+/,'')+'</h2>'; }
+    else if(/^###\s+/.test(l)){ if(inList){h+='</ul>';inList=false;} h+='<h3>'+l.replace(/^###\s+/,'')+'</h3>'; }
+    else if(/^[-*]\s+/.test(l)){ if(!inList){h+='<ul>';inList=true;} h+='<li>'+l.replace(/^[-*]\s+/,'')+'</li>'; }
+    else if(/^\d+\.\s+/.test(l)){ if(!inList){h+='<ul>';inList=true;} h+='<li>'+l.replace(/^\d+\.\s+/,'')+'</li>'; }
+    else if(l.trim()===''){ if(inList){h+='</ul>';inList=false;} }
+    else { if(inList){h+='</ul>';inList=false;} h+='<p>'+l+'</p>'; }
+  }
+  if(inList) h+='</ul>';
+  return h;
+}
+
+render();
 </script>
 </body>
 </html>

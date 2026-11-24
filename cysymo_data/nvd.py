@@ -1,7 +1,11 @@
-"""Finder NVD avec retry réseau.
+"""Finder NVD.
 
-Deux modes : find_by_keyword (texte, dépannage) et resolve_cpe + find_by_cpe (produit).
-Les requêtes réessaient automatiquement en cas de hoquet réseau.
+Deux modes :
+  - find_by_keyword            : recherche texte (bruité — dépannage)
+  - resolve_cpe + find_by_cpe  : recherche par produit (propre — recommandé)
+
+resolve_cpe('Fortinet FortiOS') -> candidats produit (part:vendor:product)
+find_by_cpe(virtualMatchString) -> les CVE qui affectent ce produit (+ CVSS)
 """
 
 import time
@@ -16,31 +20,55 @@ NVD_CVES = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 NVD_CPES = "https://services.nvd.nist.gov/rest/json/cpes/2.0"
 
 
-def _get_with_retry(session, url, params, timeout, tries=3, pause=2.0):
-    """Réessaie en cas de hoquet réseau (timeout, connexion coupée)."""
-    last = None
-    for attempt in range(tries):
-        try:
-            resp = session.get(url, params=params, timeout=timeout)
-            resp.raise_for_status()
-            return resp
-        except (requests.exceptions.ConnectionError,
-                requests.exceptions.Timeout,
-                requests.exceptions.ChunkedEncodingError) as e:
-            last = e
-            if attempt < tries - 1:
-                time.sleep(pause * (attempt + 1))
-    raise last
+# Correspondances connues : mot-clé (ou fragment) -> (vendor, product) canonique dans NVD.
+# Résout les cas où le nom courant diffère du CPE (surtout les produits détectés par Nmap).
+# Table volontairement petite et transparente ; s'étend facilement au besoin.
+KNOWN_CPES = {
+    "mysql": ("oracle", "mysql"),
+    "mariadb": ("mariadb", "mariadb"),
+    "apache http": ("apache", "http_server"),
+    "apache httpd": ("apache", "http_server"),
+    "httpd": ("apache", "http_server"),
+    "http server": ("apache", "http_server"),
+    "openssh": ("openbsd", "openssh"),
+    "nginx": ("f5", "nginx"),
+    "postgresql": ("postgresql", "postgresql"),
+    "postgres": ("postgresql", "postgresql"),
+    "fortios": ("fortinet", "fortios"),
+    "fortinet fortios": ("fortinet", "fortios"),
+    "windows server": ("microsoft", "windows_server"),
+    "exchange": ("microsoft", "exchange_server"),
+    "vsftpd": ("vsftpd_project", "vsftpd"),
+    "proftpd": ("proftpd", "proftpd"),
+    "openssl": ("openssl", "openssl"),
+    "tomcat": ("apache", "tomcat"),
+}
+
+
+def _norm(s):
+    """Minuscule, espaces normalisés, ponctuation légère retirée."""
+    s = (s or "").lower().strip()
+    for ch in ("(", ")", ",", "/"):
+        s = s.replace(ch, " ")
+    return " ".join(s.split())
+
+
+def _known_cpe(norm_keyword):
+    """Cherche une correspondance connue dans le mot-clé normalisé. Plus longue clé d'abord."""
+    for key in sorted(KNOWN_CPES, key=len, reverse=True):
+        if key in norm_keyword:
+            return KNOWN_CPES[key]
+    return None
 
 
 @dataclass
 class CpeCandidate:
-    part: str
+    part: str           # 'a' appli · 'o' OS/firmware · 'h' matériel
     vendor: str
     product: str
-    virtual_match: str
+    virtual_match: str  # à passer à find_by_cpe
     title: str
-    count: int
+    count: int          # popularité (nb de cpeNames vus)
 
 
 def _extract_cvss(metrics):
@@ -58,8 +86,7 @@ def _parse_cve(item, fetched_at):
     score, sev, vector, ver = _extract_cvss(cve.get("metrics", {}))
     desc = next((d["value"] for d in cve.get("descriptions", []) if d.get("lang") == "en"), None)
     return NvdCve(cve_id=cve["id"], cvss_score=score, cvss_severity=sev,
-                  cvss_vector=vector, cvss_version=ver, description=desc,
-                  published=cve.get("published"), retrieved_at=fetched_at)
+                  cvss_vector=vector, cvss_version=ver, description=desc, retrieved_at=fetched_at)
 
 
 class NvdClient:
@@ -77,7 +104,8 @@ class NvdClient:
         fetched_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
         while len(results) < max_results:
             q = dict(params, resultsPerPage=per_page, startIndex=start)
-            resp = _get_with_retry(self.session, NVD_CVES, q, self.timeout)
+            resp = self.session.get(NVD_CVES, params=q, timeout=self.timeout)
+            resp.raise_for_status()
             payload = resp.json()
             for item in payload.get("vulnerabilities", []):
                 results.append(_parse_cve(item, fetched_at))
@@ -100,9 +128,18 @@ class NvdClient:
         return self._search_cves({"virtualMatchString": virtual_match}, max_results)
 
     def resolve_cpe(self, keyword, limit=200):
-        resp = _get_with_retry(self.session, NVD_CPES,
-                               {"keywordSearch": keyword, "resultsPerPage": limit},
-                               self.timeout)
+        """Texte -> candidats produit, via le dictionnaire CPE.
+
+        Classement ameliore : au lieu de la seule popularite, on score chaque
+        candidat par sa CORRESPONDANCE au mot-cle (le bon produit passe devant le
+        bruit tiers), avec une petite table de correspondances connues pour les
+        produits ou le nom differe du CPE (ex. 'mysql' -> oracle:mysql).
+        Le classement ne fait que REORDONNER : aucun candidat n'est supprime.
+        """
+        resp = self.session.get(NVD_CPES,
+                                params={"keywordSearch": keyword, "resultsPerPage": limit},
+                                timeout=self.timeout)
+        resp.raise_for_status()
         payload = resp.json()
         counter, titles = Counter(), {}
         for prod in payload.get("products", []):
@@ -112,14 +149,39 @@ class NvdClient:
             parts = cpe.get("cpeName", "").split(":")
             if len(parts) < 5:
                 continue
-            base = (parts[2], parts[3], parts[4])
+            base = (parts[2], parts[3], parts[4])  # part, vendor, product
             counter[base] += 1
             if base not in titles:
                 ts = cpe.get("titles", [])
                 titles[base] = next((t["title"] for t in ts if t.get("lang") == "en"),
                                     ts[0]["title"] if ts else f"{base[1]} {base[2]}")
+
+        kw = _norm(keyword)
+        kw_tokens = set(kw.split())
+        hint = _known_cpe(kw)  # (vendor, product) attendu, ou None
+
+        def score(base, count):
+            part, vendor, product = base
+            s = 0
+            # 1) correspondance connue (le plus fort signal)
+            if hint and (vendor, product) == hint:
+                s += 10000
+            # 2) le nom de produit CPE colle au mot-cle
+            pn = _norm(product)
+            if pn == kw or pn.replace("_", " ") == kw:
+                s += 3000                       # egalite exacte
+            elif kw_tokens & set(pn.replace("_", " ").split()):
+                s += 800                        # un token commun
+            # 3) le vendor est un des tokens du mot-cle (ex. 'fortinet')
+            if _norm(vendor) in kw_tokens:
+                s += 400
+            # 4) popularite en depart de jeu / departage
+            s += min(count, 300)
+            return s
+
+        ranked = sorted(counter.items(), key=lambda kv: score(kv[0], kv[1]), reverse=True)
         out = []
-        for (part, vendor, product), count in counter.most_common():
+        for (part, vendor, product), count in ranked:
             vm = f"cpe:2.3:{part}:{vendor}:{product}:*:*:*:*:*:*:*:*"
             out.append(CpeCandidate(part, vendor, product, vm, titles[(part, vendor, product)], count))
         return out
